@@ -109,18 +109,48 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
+      - name: Generate Docker tags
+        if: steps.changed.outputs.any == 'true'
+        id: tags
+        run: |
+          CLAUDE_VERSION="${{ steps.claude.outputs.version }}"
+          NODE_VERSION="${{ steps.node.outputs.version }}"
+          
+          # Extract major.minor from claude version (e.g., 0.8.3 -> 0.8)
+          CLAUDE_MAJOR_MINOR=$(echo "$CLAUDE_VERSION" | cut -d. -f1,2)
+          
+          # Generate build date tag (YYYY-MM-DD format)
+          BUILD_DATE=$(date -u +%Y-%m-%d)
+          
+          echo "claude_major_minor=$CLAUDE_MAJOR_MINOR" >> "$GITHUB_OUTPUT"
+          echo "build_date=$BUILD_DATE" >> "$GITHUB_OUTPUT"
+
       - name: Build and push image
         if: steps.changed.outputs.any == 'true'
         uses: docker/build-push-action@v6
         with:
           context: .
           push: true
+          platforms: linux/amd64,linux/arm64
           build-args: |
             NODE_VERSION=${{ steps.node.outputs.version }}
             CLAUDE_VERSION=${{ steps.claude.outputs.version }}
           tags: |
             ucyo/claude:latest
+            ucyo/claude:${{ steps.claude.outputs.version }}
+            ucyo/claude:${{ steps.tags.outputs.claude_major_minor }}
             ucyo/claude:node${{ steps.node.outputs.version }}-claude${{ steps.claude.outputs.version }}
+            ucyo/claude:${{ steps.tags.outputs.build_date }}
+          labels: |
+            org.opencontainers.image.title=claude-code
+            org.opencontainers.image.description=Containerized Claude Code with Node.js and common tools
+            org.opencontainers.image.version=${{ steps.claude.outputs.version }}
+            org.opencontainers.image.created=${{ steps.tags.outputs.build_date }}
+            org.opencontainers.image.source=https://github.com/ucyo/claude
+            claude.version=${{ steps.claude.outputs.version }}
+            node.version=${{ steps.node.outputs.version }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       # ------------------------------------------------------------------ #
       # 7. Commit the updated Dockerfile back to main
