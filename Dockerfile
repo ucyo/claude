@@ -12,4 +12,4 @@ ARG CLAUDE_VERSION
 # Install Claude CLI
 RUN npm install -g @anthropic-ai/claude-code@${CLAUDE_VERSION}
 
-ENTRYPOINT ["claude"]
+CMD ["claude"]
